@@ -24,6 +24,7 @@ struct BaseLitEntityMaterial {
     glm::vec4 specular_tint;
     glm::vec4 ambient_tint;
     float shininess;
+    glm::vec2 texture_scale = glm::vec2(1.0f);
 };
 
 struct BaseLitEntityInstanceData : public BaseEntityInstanceData {
