@@ -23,6 +23,7 @@ struct BaseLitEntityMaterial {
     glm::vec4 diffuse_tint;
     glm::vec4 specular_tint;
     glm::vec4 ambient_tint;
+    // added for texture scaling
     float shininess;
     glm::vec2 texture_scale = glm::vec2(1.0f);
 };

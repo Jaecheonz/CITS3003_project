@@ -157,7 +157,7 @@ void EditorScene::LitMaterialComponent::add_material_imgui_edit_section(MasterRe
     ImGui::DragDisableCursor(scene_context.window);
     ImGui::Spacing();
     
-    // Texture scale (assuming this is in the material struct - might need to check actual field name)
+    // Texture scale (using alpha channel)
     material_changed |= ImGui::DragFloat("Texture Scale", &material.texture_scale.x, 0.01f, 0.0f, FLT_MAX);
     material.texture_scale.y = material.texture_scale.x; // Keep Y in sync with X
     ImGui::DragDisableCursor(scene_context.window);
