@@ -157,7 +157,7 @@ void EditorScene::LitMaterialComponent::add_material_imgui_edit_section(MasterRe
     ImGui::DragDisableCursor(scene_context.window);
     ImGui::Spacing();
     
-    // Texture scale (using alpha channel)
+    // Texture scale (using alpha channel, task e)
     material_changed |= ImGui::DragFloat("Texture Scale", &material.texture_scale.x, 0.01f, 0.0f, FLT_MAX);
     material.texture_scale.y = material.texture_scale.x; // Keep Y in sync with X
     ImGui::DragDisableCursor(scene_context.window);
@@ -201,8 +201,9 @@ void EditorScene::EmissiveMaterialComponent::add_emissive_material_imgui_edit_se
     ImGui::DragDisableCursor(scene_context.window);
     ImGui::Spacing();
     
-    // Texture scale for emissive material
-    material_changed |= ImGui::DragFloat2("Texture Scale", &material.texture_scale[0], 0.01f, 0.0f, FLT_MAX);
+    // Texture scale for emissive material (task e)
+    material_changed |= ImGui::DragFloat("Texture Scale", &material.texture_scale.x, 0.01f, 0.0f, FLT_MAX);
+    material.texture_scale.y = material.texture_scale.x; // Keep Y in sync with X
     ImGui::DragDisableCursor(scene_context.window);
 
     ImGui::Spacing();   

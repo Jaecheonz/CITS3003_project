@@ -55,6 +55,8 @@ protected:
     int specular_tint_location{};
     int ambient_tint_location{};
     int shininess_location{};
+    // added for task e
+    int texture_scale_location{};
 
     static const uint POINT_LIGHT_BINDING = 0;
 
