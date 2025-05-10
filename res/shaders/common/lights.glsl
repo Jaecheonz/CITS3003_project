@@ -32,10 +32,10 @@ void point_light_calculation(PointLightData point_light, LightCalculatioData cal
     // added distance collection for attenuation calculation (for task f)
     float distance = length(ws_light_offset);
 
-    // Tuned Attenuation factors (for task f)
-    float a = 0.01f;
-    float b = 0.2f;
-    float c = 0.05f;
+    // Tuned Attenuation factors, values for faster fading over distance behaviour (for task f)
+    float a = 0.01f; // Small constant so close objects are lit well
+    float b = 0.2f; // Linear falloff
+    float c = 0.05f; // Quadratic falloff
     // attentuation formula for task f
     float attenuation = 1.0f / (a + b * distance + c * (distance * distance));
 

@@ -45,15 +45,23 @@ void PanningCamera::update(const Window& window, float dt, bool controls_enabled
     pitch = clamp(pitch, PITCH_MIN, PITCH_MAX);
     distance = clamp(distance, MIN_DISTANCE, MAX_DISTANCE);
 
-    view_matrix = glm::translate(glm::vec3{0.0f, 0.0f, -distance});
-    // added to fix the camera rotation
-    view_matrix = glm::rotate(pitch, glm::vec3{1.0f, 0.0f, 0.0f}) * view_matrix;
-    view_matrix = glm::rotate(yaw, glm::vec3{0.0f, 1.0f, 0.0f}) * view_matrix;
-    view_matrix = glm::translate(-focus_point) * view_matrix;
-
+    // updated marices to fix the camera for task a
+    // Create rotation matrices for pitch and yaw
+    glm::mat4 pitch_rotation = glm::rotate(pitch, RIGHT);  // Rotate around x-axis for pitch
+    glm::mat4 yaw_rotation = glm::rotate(yaw, UP);        // Rotate around y-axis for yaw
+    
+    // Combine rotations
+    glm::mat4 rotation = yaw_rotation * pitch_rotation;
+    
+    // Calculate camera position based on focus_point, distance, and rotation
+    // We need to find the position of the camera in world space
+    glm::vec3 offset = rotation * glm::vec4(0.0f, 0.0f, distance, 0.0f);
+    glm::vec3 position = focus_point - glm::vec3(offset);
+    
+    // Look from camera position towards focus_point
+    view_matrix = glm::lookAt(position, focus_point, UP);
     inverse_view_matrix = glm::inverse(view_matrix);
 
-    // changed hardcoded 1.0f to near
     projection_matrix = glm::infinitePerspective(fov, window.get_framebuffer_aspect_ratio(), near);
     inverse_projection_matrix = glm::inverse(projection_matrix);
 }
