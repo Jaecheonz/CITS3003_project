@@ -7,7 +7,9 @@ layout(location = 1) in vec3 normal;
 layout(location = 2) in vec2 texture_coordinate;
 
 out VertexOut {
-    LightingResult lighting_result;
+    // changed lighting_result to ws_position and ws_normal for task g
+    vec3 ws_position;
+    vec3 ws_normal;
     vec2 texture_coordinate;
 } vertex_out;
 
@@ -15,42 +17,27 @@ out VertexOut {
 uniform mat4 model_matrix;
 uniform mat3 normal_matrix;
 
-// Material properties
-uniform vec3 diffuse_tint;
-uniform vec3 specular_tint;
-uniform vec3 ambient_tint;
-uniform float shininess;
+// moved material properties variable declarations to frag.glsl for task g
+
 // added for task e
 uniform vec2 texture_scale;
 
-// Light Data
-#if NUM_PL > 0
-layout (std140) uniform PointLightArray {
-    PointLightData point_lights[NUM_PL];
-};
-#endif
+// moved Light Data segment to frag.glsl for task g
 
 // Global data
-uniform vec3 ws_view_position;
+// removed ws_view_position for task g
 uniform mat4 projection_view_matrix;
 
 void main() {
     // Transform vertices
-    vec3 ws_position = (model_matrix * vec4(vertex_position, 1.0f)).xyz;
-    vec3 ws_normal = normalize(normal_matrix * normal);
+    // changed data type to output for task g
+    vertex_out.ws_position = (model_matrix * vec4(vertex_position, 1.0f)).xyz;
+    vertex_out.ws_normal = normal_matrix * normal;
+    
     // modified for task e
     vertex_out.texture_coordinate = texture_coordinate * texture_scale;
 
-    gl_Position = projection_view_matrix * vec4(ws_position, 1.0f);
+    // moved lighting calculations to frag.glsl
 
-    // Per vertex lighting
-    vec3 ws_view_dir = normalize(ws_view_position - ws_position);
-    LightCalculatioData light_calculation_data = LightCalculatioData(ws_position, ws_view_dir, ws_normal);
-    Material material = Material(diffuse_tint, specular_tint, ambient_tint, shininess);
-
-    vertex_out.lighting_result = total_light_calculation(light_calculation_data, material
-        #if NUM_PL > 0
-        ,point_lights
-        #endif
-    );
+    gl_Position = projection_view_matrix * vec4(vertex_out.ws_position, 1.0f);
 }
