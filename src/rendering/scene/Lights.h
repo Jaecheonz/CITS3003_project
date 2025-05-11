@@ -84,6 +84,24 @@ struct LightScene {
     // task h
     std::vector<DirectionalLight> get_directional_lights(size_t max_count, size_t min_count = 0) const;
 
+    // Add these helper methods
+    void add_point_light(std::shared_ptr<PointLight> light) {
+        point_lights.insert(std::move(light));
+    }
+
+    void remove_point_light(const std::shared_ptr<PointLight>& light) {
+        point_lights.erase(light);
+    }
+
+    // task h - add methods for directional lights
+    void add_directional_light(std::shared_ptr<DirectionalLight> light) {
+        directional_lights.insert(std::move(light));
+    }
+
+    void remove_directional_light(const std::shared_ptr<DirectionalLight>& light) {
+        directional_lights.erase(light);
+    }
+
 
 private:
     template<typename Light>

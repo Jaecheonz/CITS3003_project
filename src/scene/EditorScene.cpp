@@ -10,6 +10,7 @@
 #include "editor_scene/AnimatedEntityElement.h"
 #include "editor_scene/EmissiveEntityElement.h"
 #include "editor_scene/PointLightElement.h"
+#include "editor_scene/DirectionalLightElement.h"
 #include "editor_scene/GroupElement.h"
 #include "scene/SceneContext.h"
 
@@ -89,6 +90,37 @@ void EditorScene::EditorScene::open(const SceneContext& scene_context) {
     default_light->add_to_render_scene(render_scene);
     scene_root->push_back(std::move(default_light));
 
+    // task h
+    auto default_directional_light_dir = glm::vec3(-1.0f, -1.0f, -1.0f); // Example direction
+    auto default_directional_light_col = glm::vec3(1.0f);
+
+    auto default_directional_light = std::make_unique<DirectionalLightElement>(
+        NullElementRef,
+        "Default Directional Light",
+        default_directional_light_dir,
+        DirectionalLight::create(
+            glm::vec3{}, // Placeholder direction (set via update_instance_data)
+            glm::vec4{default_directional_light_col, 1.0f}
+        ),
+        // Add the missing arrow parameter - create an emissive entity to visualize the directional light
+        EmissiveEntityRenderer::Entity::create(
+            scene_context.model_loader.load_from_file<EntityRenderer::VertexData>("cylinder.obj"),
+            EmissiveEntityRenderer::InstanceData{
+                glm::mat4{1.0f}, // Set via update_instance_data()
+                EmissiveEntityRenderer::EmissiveEntityMaterial{
+                    glm::vec4{default_directional_light_col, 1.0f}
+                }
+            },
+            EmissiveEntityRenderer::RenderData{
+                scene_context.texture_loader.default_white_texture()
+            }
+        )
+    );
+
+    default_directional_light->update_instance_data();
+    default_directional_light->add_to_render_scene(render_scene);
+    scene_root->push_back(std::move(default_directional_light));
+
     /// Setup all the generates
 
     /// All the entity generators, new entity types must be registered here to be able to be created in the UI
@@ -101,6 +133,8 @@ void EditorScene::EditorScene::open(const SceneContext& scene_context) {
     /// All the light generators, new light types must be registered here to be able to be created in the UI
     light_generators = {
         {PointLightElement::ELEMENT_TYPE_NAME, [](const SceneContext& scene_context, ElementRef parent) { return PointLightElement::new_default(scene_context, parent); }},
+        // task h
+        {DirectionalLightElement::ELEMENT_TYPE_NAME, [](const SceneContext& scene_context, ElementRef parent) { return DirectionalLightElement::new_default(scene_context, parent); }},
     };
 
     /// All the element generators, new element types must be registered here to be able to be loaded from json
@@ -109,6 +143,8 @@ void EditorScene::EditorScene::open(const SceneContext& scene_context) {
         {AnimatedEntityElement::ELEMENT_TYPE_NAME, [](const SceneContext& scene_context, ElementRef parent, const json& j) { return AnimatedEntityElement::from_json(scene_context, parent, j); }},
         {EmissiveEntityElement::ELEMENT_TYPE_NAME, [](const SceneContext& scene_context, ElementRef parent, const json& j) { return EmissiveEntityElement::from_json(scene_context, parent, j); }},
         {PointLightElement::ELEMENT_TYPE_NAME,     [](const SceneContext& scene_context, ElementRef parent, const json& j) { return PointLightElement::from_json(scene_context, parent, j); }},
+        // task h
+        {DirectionalLightElement::ELEMENT_TYPE_NAME, [](const SceneContext& scene_context, ElementRef parent, const json& j) { return DirectionalLightElement::from_json(scene_context, parent, j); }},
         {GroupElement::ELEMENT_TYPE_NAME,          [](const SceneContext&, ElementRef parent, const json& j) { return GroupElement::from_json(parent, j); }},
     };
 }

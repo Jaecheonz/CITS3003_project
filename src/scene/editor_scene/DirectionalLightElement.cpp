@@ -7,76 +7,96 @@
 #include "rendering/imgui/ImGuiManager.h"
 #include "scene/SceneContext.h"
 
-using namespace EditorScene;
-
-std::unique_ptr<DirectionalLightElement> DirectionalLightElement::new_default(const SceneContext& scene_context, ElementRef parent) {
-    auto light = DirectionalLight::create(
-        glm::vec3{0.0f, -1.0f, 0.0f},
-        glm::vec4{1.0f}
+std::unique_ptr<EditorScene::DirectionalLightElement> EditorScene::DirectionalLightElement::new_default(const SceneContext& scene_context, ElementRef parent) {
+    auto default_direction = glm::normalize(glm::vec3(-1.0f, -1.0f, -1.0f));
+    auto default_color = glm::vec3(1.0f, 1.0f, 1.0f);
+    
+    auto light_element = std::make_unique<DirectionalLightElement>(
+        parent,
+        "Directional Light",
+        default_direction,
+        DirectionalLight::create(
+            glm::vec3{}, // Will be set in update_instance_data
+            glm::vec4{default_color, 1.0f}
+        ),
+        EmissiveEntityRenderer::Entity::create(
+            scene_context.model_loader.load_from_file<EntityRenderer::VertexData>("cylinder.obj"),
+            EmissiveEntityRenderer::InstanceData{
+                glm::mat4{1.0f}, // Set via update_instance_data()
+                EmissiveEntityRenderer::EmissiveEntityMaterial{
+                    glm::vec4{default_color, 1.0f}
+                }
+            },
+            EmissiveEntityRenderer::RenderData{
+                scene_context.texture_loader.default_white_texture()
+            }
+        )
     );
-
-    auto arrow = EmissiveEntityRenderer::Entity::create(
-        scene_context.model_loader.load_from_file<EmissiveEntityRenderer::VertexData>("arrow.obj"),
-        EmissiveEntityRenderer::InstanceData{
-            glm::mat4{},
-            EmissiveEntityRenderer::EmissiveEntityMaterial{glm::vec4{1.0f}}
-        },
-        EmissiveEntityRenderer::RenderData{
-            scene_context.texture_loader.default_white_texture()
-        }
-    );
-
-    auto element = std::make_unique<DirectionalLightElement>(parent, "New Directional Light", glm::vec3{0.0f, -1.0f, 0.0f}, light, arrow);
-    element->update_instance_data();
-    return element;
+    
+    light_element->update_instance_data();
+    return light_element;
 }
 
-std::unique_ptr<DirectionalLightElement> DirectionalLightElement::from_json(const SceneContext& scene_context, ElementRef parent, const json& j) {
-    auto element = new_default(scene_context, parent);
-    element->direction = glm::normalize(j["direction"]);
-    element->light->colour = j["colour"];
-    element->visible = j["visible"];
-    element->visual_scale = j["visual_scale"];
-    element->update_instance_data();
-    return element;
+std::unique_ptr<EditorScene::DirectionalLightElement> EditorScene::DirectionalLightElement::from_json(const SceneContext& scene_context, ElementRef parent, const json& j) {
+    // Follow PointLightElement approach for consistency
+    auto light_element = new_default(scene_context, parent);
+    
+    light_element->direction = j["direction"];
+    light_element->light->colour = j["colour"];
+    light_element->visible = j["visible"];
+    light_element->visual_scale = j["visual_scale"];
+    
+    light_element->update_instance_data();
+    return light_element;
 }
 
-json DirectionalLightElement::into_json() const {
+json EditorScene::DirectionalLightElement::into_json() const {
     return {
-        {"direction",    direction},
-        {"colour",       light->colour},
-        {"visible",      visible},
-        {"visual_scale", visual_scale}
+        {"name", name},
+        {"direction", direction},
+        {"colour", light->colour},
+        {"visible", visible},
+        {"visual_scale", visual_scale},
     };
 }
 
-void DirectionalLightElement::add_imgui_edit_section(MasterRenderScene& render_scene, const SceneContext& scene_context) {
+void EditorScene::DirectionalLightElement::add_imgui_edit_section(MasterRenderScene& render_scene, const SceneContext& scene_context) {
     ImGui::Text("Directional Light");
     SceneElement::add_imgui_edit_section(render_scene, scene_context);
 
-    ImGui::Text("Light Direction");
-    bool updated = ImGui::DragFloat3("Direction", &direction[0], 0.01f);
-    if (updated) {
-        direction = glm::normalize(direction);
+    ImGui::Text("Direction");
+    bool updated = false;
+    glm::vec3 dir = direction;
+    if (ImGui::InputFloat3("Direction", &dir[0], "%.2f")) {
+        if (glm::length(dir) > 0.001f) {
+            direction = glm::normalize(dir);
+            updated = true;
+        }
     }
+    ImGui::DragDisableCursor(scene_context.window);
+    ImGui::Spacing();
 
-    ImGui::Spacing();
     ImGui::Text("Light Properties");
-    updated |= ImGui::ColorEdit3("Colour", &light->colour[0]);
+    glm::vec4 colour = light->colour;
+    updated |= ImGui::ColorEdit3("Colour", &colour[0]);
     ImGui::Spacing();
-    updated |= ImGui::DragFloat("Intensity", &light->colour.a, 0.01f, 0.0f, FLT_MAX);
+    updated |= ImGui::DragFloat("Intensity", &colour.a, 0.01f, 0.0f, FLT_MAX);
+    light->colour = colour;
+    ImGui::DragDisableCursor(scene_context.window);
 
     ImGui::Spacing();
     ImGui::Text("Visuals");
+
     updated |= ImGui::Checkbox("Show Visuals", &visible);
     updated |= ImGui::DragFloat("Visual Scale", &visual_scale, 0.01f, 0.0f, FLT_MAX);
+    ImGui::DragDisableCursor(scene_context.window);
 
     if (updated) {
         update_instance_data();
     }
 }
 
-void DirectionalLightElement::update_instance_data() {
+void EditorScene::DirectionalLightElement::update_instance_data() {
     glm::vec3 up = glm::vec3{0.0f, 1.0f, 0.0f};
     glm::vec3 axis = glm::cross(up, direction);
     float angle = glm::acos(glm::dot(up, direction));
@@ -100,6 +120,6 @@ void DirectionalLightElement::update_instance_data() {
     light_arrow->instance_data.material.emission_tint = glm::vec4(norm_col, light_arrow->instance_data.material.emission_tint.a);
 }
 
-const char* DirectionalLightElement::element_type_name() const {
+const char* EditorScene::DirectionalLightElement::element_type_name() const {
     return ELEMENT_TYPE_NAME;
 }
