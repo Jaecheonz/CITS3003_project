@@ -1,7 +1,8 @@
 #include "Lights.h"
 
 #include <algorithm>
-
+// task h
+#include <type_traits>  // For std::is_same_v
 std::vector<PointLight> LightScene::get_nearest_point_lights(glm::vec3 target, size_t max_count, size_t min_count) const {
     return get_nearest_lights(point_lights, target, max_count, min_count);
 }
@@ -33,10 +34,17 @@ std::vector<Light> LightScene::get_nearest_lights(const std::unordered_set<std::
     std::vector<std::pair<float, Light>> sorted_vector{};
     sorted_vector.reserve(lights.size());
     for (const auto& point_light: lights) {
-        glm::vec3 diff = point_light->position - target;
-        // dot(a, a) == |a|^2, but doesn't require a sqrt()
-        // and since (|a| < |b|) <-> (|a|^2 < |b|^2) so sorting works with squares
-        float distance_squared = glm::dot(diff, diff);
+        // modified for task h
+        float distance_squared = 0.0f;
+        if constexpr (std::is_same_v<Light, PointLight>) {
+            // For point lights, calculate distance from the target
+            glm::vec3 diff = point_light->position - target;
+            // dot(a, a) == |a|^2, but doesn't require a sqrt()
+            // and since (|a| < |b|) <-> (|a|^2 < |b|^2) so sorting works with squares
+            distance_squared = glm::dot(diff, diff);
+        }
+        // For directional lights, we don't consider distance
+        // They're all treated equally with distance = 0
         sorted_vector.emplace_back(distance_squared, *point_light);
     }
 
