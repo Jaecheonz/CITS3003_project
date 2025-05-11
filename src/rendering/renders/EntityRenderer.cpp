@@ -10,6 +10,28 @@ void EntityRenderer::EntityShader::get_uniforms_set_bindings() {
     BaseLitEntityShader::get_uniforms_set_bindings(); // Call the base implementation to load all the common uniforms
     // Pass normal matrix from cpu to not need to compute the same cofactor for every vertex
     normal_matrix_location = get_uniform_location("normal_matrix");
+
+    // Directional lights uniforms for task h
+    directional_light_count_location = get_uniform_location("num_directional_lights");
+    directional_light_direction_location = get_uniform_location("directional_lights.direction");
+    directional_light_color_location = get_uniform_location("directional_lights.color");
+}
+
+// Define the set_directional_lights() method for task h
+void EntityRenderer::EntityShader::set_directional_lights(const std::vector<DirectionalLight>& directional_lights) {
+    // Set the number of directional lights
+    glUniform1i(directional_light_count_location, directional_lights.size());
+    
+    // Set directional light data (direction and color)
+    for (size_t i = 0; i < directional_lights.size(); ++i) {
+        std::string base_name = "directional_lights[" + std::to_string(i) + "]";
+        
+        // Direction uniform
+        glUniform3fv(get_uniform_location((base_name + ".direction").c_str()), 1, &directional_lights[i].direction[0]);
+        
+        // Color uniform
+        glUniform3fv(get_uniform_location((base_name + ".color").c_str()), 1, &directional_lights[i].colour[0]);
+    }
 }
 
 void EntityRenderer::EntityShader::set_instance_data(const BaseLitEntityInstanceData& instance_data) {
@@ -43,6 +65,8 @@ void EntityRenderer::EntityRenderer::render(const RenderScene& render_scene, con
         // so that issue won't happen since it only recompiles on a change.
         // Just make sure to be careful of this kind of thing.
         shader.set_point_lights(light_scene.get_nearest_point_lights(position, BaseLitEntityShader::MAX_PL, 1));
+        // Set directional lights for task h
+        shader.set_directional_lights(light_scene.get_all_directional_lights(BaseLitEntityShader::MAX_DL, 0));
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, entity->render_data.diffuse_texture->get_texture_id());

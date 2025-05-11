@@ -48,6 +48,8 @@ using BaseLitEntityGlobalData = BaseEntityGlobalData;
 class BaseLitEntityShader : public BaseEntityShader {
 public:
     static constexpr uint MAX_PL = 16;
+    // added new max for directional lights for task h
+    static constexpr uint MAX_DL = 4;
 
 protected:
     // Material

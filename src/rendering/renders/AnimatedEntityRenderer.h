@@ -45,12 +45,20 @@ namespace AnimatedEntityRenderer {
     class AnimatedEntityShader : public BaseLitEntityShader {
         // Animation Data
         int bone_transforms_location{};
+
+        // Directional lights uniforms for task h
+        int directional_light_count_location{};
+        int directional_light_direction_location{};
+        int directional_light_color_location{};
+
     public:
         AnimatedEntityShader();
 
         void set_model_matrix(const glm::mat4& model_matrix);
 
         void set_bone_transforms(const std::vector<glm::mat4>& bone_transforms);
+        // new declaration for task h
+        void set_directional_lights(const std::vector<DirectionalLight>& directional_lights);
     private:
         // Override get_uniforms_set_bindings to get the extra uniform for bone transforms
         void get_uniforms_set_bindings() override;

@@ -39,10 +39,16 @@ namespace EntityRenderer {
 
     class EntityShader : public BaseLitEntityShader {
         int normal_matrix_location{};
+        // New uniform for directional lights for task h
+        int directional_light_count_location{};
+        int directional_light_direction_location{};
+        int directional_light_color_location{};
     public:
         EntityShader();
 
         void set_instance_data(const BaseLitEntityInstanceData& instance_data);
+        // new declaration for task h
+        void set_directional_lights(const std::vector<DirectionalLight>& directional_lights);
     protected:
         void get_uniforms_set_bindings() override;
     };

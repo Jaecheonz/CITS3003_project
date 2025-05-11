@@ -29,6 +29,13 @@ layout (std140) uniform PointLightArray {
 };
 #endif
 
+// directional light data for task h
+#if NUM_DL > 0
+layout (std140) uniform DirectionalLightArray {
+    DirectionalLightData directional_lights[NUM_DL];
+};
+#endif
+
 // Global data from vert.glsl for task g
 uniform vec3 ws_view_position;
 
@@ -41,6 +48,10 @@ void main() {
     LightingResult lighting_result = total_light_calculation(light_calculation_data, material
         #if NUM_PL > 0
         ,point_lights
+        #endif
+        // new signature for directional lights for task h
+        #if NUM_DL > 0
+        ,directional_lights
         #endif
     );
     

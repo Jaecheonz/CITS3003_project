@@ -6,6 +6,11 @@ std::vector<PointLight> LightScene::get_nearest_point_lights(glm::vec3 target, s
     return get_nearest_lights(point_lights, target, max_count, min_count);
 }
 
+// added new function for task h
+std::vector<DirectionalLight> LightScene::get_all_directional_lights(size_t max_count, size_t min_count) const {
+    return get_nearest_lights(directional_lights, glm::vec3{0.0f}, max_count, min_count);
+}
+
 template<typename Light>
 std::vector<Light> LightScene::get_nearest_lights(const std::unordered_set<std::shared_ptr<Light>>& lights, glm::vec3 target, size_t max_count, size_t min_count) {
     if (lights.size() <= max_count) {
@@ -28,7 +33,13 @@ std::vector<Light> LightScene::get_nearest_lights(const std::unordered_set<std::
     std::vector<std::pair<float, Light>> sorted_vector{};
     sorted_vector.reserve(lights.size());
     for (const auto& point_light: lights) {
-        glm::vec3 diff = point_light->position - target;
+        // decide if its point or directional light for task h
+        glm::vec3 diff;
+        if constexpr (std::is_same_v<Light, PointLight>) {
+            diff = point_light->position - target;
+        } else if constexpr (std::is_same_v<Light, DirectionalLight>) {
+            diff = point_light->direction;
+        }
         // dot(a, a) == |a|^2, but doesn't require a sqrt()
         // and since (|a| < |b|) <-> (|a|^2 < |b|^2) so sorting works with squares
         float distance_squared = glm::dot(diff, diff);
