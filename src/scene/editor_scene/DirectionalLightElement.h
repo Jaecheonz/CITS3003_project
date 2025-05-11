@@ -6,12 +6,15 @@
 
 namespace EditorScene {
     class DirectionalLightElement : public SceneElement {
+    private:
+        glm::vec3 position{0.0f, 1.0f, 0.0f};
+
     public:
         static constexpr const char* ELEMENT_TYPE_NAME = "Directional Light";
 
         glm::vec3 direction{0.0f, -1.0f, 0.0f};
         bool visible = true;
-        float visual_scale = 1.0f;
+        float visual_scale = 0.1f;
 
         std::shared_ptr<DirectionalLight> light;
         std::shared_ptr<EmissiveEntityRenderer::Entity> light_arrow;

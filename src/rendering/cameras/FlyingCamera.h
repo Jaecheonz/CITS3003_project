@@ -9,7 +9,7 @@ class FlyingCamera : public CameraInterface {
     float init_pitch = 0.0f;
     float init_yaw = 0.0f;
 
-    float init_near = 0.01f;
+    float init_near = 0.0001f;
     float init_fov = glm::radians(90.0f);
 
     float init_gamma = 2.2f;

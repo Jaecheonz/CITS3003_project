@@ -38,7 +38,6 @@ std::unique_ptr<EditorScene::DirectionalLightElement> EditorScene::DirectionalLi
 }
 
 std::unique_ptr<EditorScene::DirectionalLightElement> EditorScene::DirectionalLightElement::from_json(const SceneContext& scene_context, ElementRef parent, const json& j) {
-    // Follow PointLightElement approach for consistency
     auto light_element = new_default(scene_context, parent);
     
     light_element->direction = j["direction"];
@@ -54,6 +53,7 @@ json EditorScene::DirectionalLightElement::into_json() const {
     return {
         {"name", name},
         {"direction", direction},
+        {"position", position},
         {"colour", light->colour},
         {"visible", visible},
         {"visual_scale", visual_scale},
@@ -64,18 +64,53 @@ void EditorScene::DirectionalLightElement::add_imgui_edit_section(MasterRenderSc
     ImGui::Text("Directional Light");
     SceneElement::add_imgui_edit_section(render_scene, scene_context);
 
-    ImGui::Text("Direction");
     bool updated = false;
-    glm::vec3 dir = direction;
-    if (ImGui::InputFloat3("Direction", &dir[0], "%.2f")) {
-        if (glm::length(dir) > 0.001f) {
-            direction = glm::normalize(dir);
-            updated = true;
-        }
-    }
+    
+    // Add a position control (purely visual, doesn't affect light behavior)
+    ImGui::Text("Visual Position (for display only)");
+    updated |= ImGui::DragFloat3("Position", &position[0], 0.01f);
     ImGui::DragDisableCursor(scene_context.window);
     ImGui::Spacing();
 
+    ImGui::Text("Direction");
+    
+    // Convert the direction vector to pitch and yaw angles
+    glm::vec3 dir = glm::normalize(direction);
+    
+    // Calculate pitch (in degrees): -90 = straight down, 90 = straight up
+    float pitch = glm::degrees(asin(dir.y));
+    
+    // Calculate yaw (in degrees): 0 = toward positive X, 90 = toward positive Z, etc.
+    float yaw = glm::degrees(atan2(dir.z, dir.x));
+    
+    // Create sliders for pitch and yaw
+    updated |= ImGui::DragFloat("Pitch", &pitch, 1.0f, -90.0f, 90.0f, "%.1f°");
+    updated |= ImGui::DragFloat("Yaw", &yaw, 1.0f, -180.0f, 180.0f, "%.1f°");
+    ImGui::DragDisableCursor(scene_context.window);
+    
+    // If sliders changed, convert pitch and yaw back to a direction vector
+    if (updated) {
+        // Convert to radians for calculations
+        float pitch_rad = glm::radians(pitch);
+        float yaw_rad = glm::radians(yaw);
+        
+        // Convert spherical coordinates to Cartesian
+        direction.x = cos(pitch_rad) * cos(yaw_rad);
+        direction.y = sin(pitch_rad);
+        direction.z = cos(pitch_rad) * sin(yaw_rad);
+        
+        // Ensure direction is normalized
+        direction = glm::normalize(direction);
+    }
+    
+    ImGui::Spacing();
+    
+    // Display the resulting direction vector for reference
+    ImGui::Text("Resulting Vector: (%.2f, %.2f, %.2f)", 
+                direction.x, direction.y, direction.z);
+    ImGui::Spacing();
+
+    // Rest of the method remains the same
     ImGui::Text("Light Properties");
     glm::vec4 colour = light->colour;
     updated |= ImGui::ColorEdit3("Colour", &colour[0]);
@@ -102,16 +137,19 @@ void EditorScene::DirectionalLightElement::update_instance_data() {
     float angle = glm::acos(glm::dot(up, direction));
 
     glm::mat4 rotation = glm::rotate(angle, axis);
+    glm::mat4 translation = glm::translate(position); // Apply position to visual representation
     glm::mat4 scale = glm::scale(glm::vec3{visual_scale});
 
     if (!EditorScene::is_null(parent)) {
         rotation = (*parent)->transform * rotation;
+        // Note: We're not applying parent transform to position to keep it in world space
     }
 
     light->direction = glm::normalize(glm::vec3(rotation * glm::vec4(direction, 0.0f)));
 
     if (visible) {
-        light_arrow->instance_data.model_matrix = rotation * scale;
+        // Apply translation (position) to the arrow model
+        light_arrow->instance_data.model_matrix = translation * rotation * scale;
     } else {
         light_arrow->instance_data.model_matrix = glm::scale(glm::vec3{std::numeric_limits<float>::infinity()}) * glm::translate(glm::vec3{std::numeric_limits<float>::infinity()});
     }

@@ -133,7 +133,7 @@ void FlyingCamera::add_imgui_options_section(const SceneContext& scene_context) 
     ImGui::DragDisableCursor(scene_context.window);
     yaw = glm::radians(glm::mod(yaw_degrees, 360.0f));
 
-    ImGui::SliderFloat("Near Plane", &near, 0.001f, 1.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
+    ImGui::SliderFloat("Near Plane", &near, 0.0001f, 1.0f, "%.5f", ImGuiSliderFlags_Logarithmic);
 
     float fov_degrees = glm::degrees(fov);
     ImGui::SliderFloat("FOV", &fov_degrees, 40.0f, 170.0f);

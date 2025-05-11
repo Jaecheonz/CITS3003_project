@@ -90,37 +90,6 @@ void EditorScene::EditorScene::open(const SceneContext& scene_context) {
     default_light->add_to_render_scene(render_scene);
     scene_root->push_back(std::move(default_light));
 
-    // task h
-    auto default_directional_light_dir = glm::vec3(-1.0f, -1.0f, -1.0f); // Example direction
-    auto default_directional_light_col = glm::vec3(1.0f);
-
-    auto default_directional_light = std::make_unique<DirectionalLightElement>(
-        NullElementRef,
-        "Default Directional Light",
-        default_directional_light_dir,
-        DirectionalLight::create(
-            glm::vec3{}, // Placeholder direction (set via update_instance_data)
-            glm::vec4{default_directional_light_col, 1.0f}
-        ),
-        // Add the missing arrow parameter - create an emissive entity to visualize the directional light
-        EmissiveEntityRenderer::Entity::create(
-            scene_context.model_loader.load_from_file<EntityRenderer::VertexData>("cylinder.obj"),
-            EmissiveEntityRenderer::InstanceData{
-                glm::mat4{1.0f}, // Set via update_instance_data()
-                EmissiveEntityRenderer::EmissiveEntityMaterial{
-                    glm::vec4{default_directional_light_col, 1.0f}
-                }
-            },
-            EmissiveEntityRenderer::RenderData{
-                scene_context.texture_loader.default_white_texture()
-            }
-        )
-    );
-
-    default_directional_light->update_instance_data();
-    default_directional_light->add_to_render_scene(render_scene);
-    scene_root->push_back(std::move(default_directional_light));
-
     /// Setup all the generates
 
     /// All the entity generators, new entity types must be registered here to be able to be created in the UI
