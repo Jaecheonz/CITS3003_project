@@ -48,6 +48,8 @@ using BaseLitEntityGlobalData = BaseEntityGlobalData;
 class BaseLitEntityShader : public BaseEntityShader {
 public:
     static constexpr uint MAX_PL = 16;
+    // task h
+    static constexpr uint MAX_DL = 8;
 
 protected:
     // Material
@@ -58,9 +60,15 @@ protected:
     // added for task e
     int texture_scale_location{};
 
+    // task h
+    int directional_light_location{};
     static const uint POINT_LIGHT_BINDING = 0;
+    // task h
+    static const uint DIRECTIONAL_LIGHT_BINDING = 1;
 
     UniformBufferArray<PointLight::Data, MAX_PL> point_lights_ubo;
+    // task h
+    UniformBufferArray<DirectionalLight::Data, MAX_DL> directional_lights_ubo;
 public:
     BaseLitEntityShader(std::string name, const std::string& vertex_path, const std::string& fragment_path,
                         std::unordered_map<std::string, std::string> vert_defines = {},
@@ -69,6 +77,8 @@ public:
     void set_instance_data(const BaseLitEntityInstanceData& instance_data);
 
     void set_point_lights(const std::vector<PointLight>& point_lights);
+    // task h
+    void set_directional_lights(const std::vector<DirectionalLight>& directional_lights);
 protected:
     void get_uniforms_set_bindings() override;
 };

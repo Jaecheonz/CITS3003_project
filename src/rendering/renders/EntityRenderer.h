@@ -43,6 +43,8 @@ namespace EntityRenderer {
         EntityShader();
 
         void set_instance_data(const BaseLitEntityInstanceData& instance_data);
+        // task h
+        void set_directional_lights(const std::vector<DirectionalLight>& directional_lights);
     protected:
         void get_uniforms_set_bindings() override;
     };

@@ -30,6 +30,7 @@ struct PointLightData {
 struct DirectionalLightData {
     vec3 direction; // World space direction (should be normalized)
     vec3 colour;
+    float intensity; // Intensity of the light
 };
 
 // Calculations

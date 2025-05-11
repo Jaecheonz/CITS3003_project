@@ -51,6 +51,8 @@ namespace AnimatedEntityRenderer {
         void set_model_matrix(const glm::mat4& model_matrix);
 
         void set_bone_transforms(const std::vector<glm::mat4>& bone_transforms);
+        // task h
+        void set_directional_lights(const std::vector<DirectionalLight>& directional_lights);
     private:
         // Override get_uniforms_set_bindings to get the extra uniform for bone transforms
         void get_uniforms_set_bindings() override;

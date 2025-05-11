@@ -12,6 +12,25 @@ void EntityRenderer::EntityShader::get_uniforms_set_bindings() {
     normal_matrix_location = get_uniform_location("normal_matrix");
 }
 
+// task h
+void EntityRenderer::EntityShader::set_directional_lights(const std::vector<DirectionalLight>& directional_lights) {
+    uint count = std::min(MAX_DL, (uint) directional_lights.size());
+
+    for (uint i = 0; i < count; i++) {
+        const DirectionalLight& directional_light = directional_lights[i];
+
+        glm::vec3 scaled_colour = glm::vec3(directional_light.colour) * directional_light.colour.a;
+
+        directional_lights_ubo.data[i].direction = directional_light.direction;
+        directional_lights_ubo.data[i].colour = scaled_colour;
+        directional_lights_ubo.data[i].intensity = directional_light.colour.a;
+    }
+
+    set_frag_define("NUM_DL", Formatter() << count);
+    directional_lights_ubo.bind(DIRECTIONAL_LIGHT_BINDING);
+    directional_lights_ubo.upload();
+}
+
 void EntityRenderer::EntityShader::set_instance_data(const BaseLitEntityInstanceData& instance_data) {
     BaseLitEntityShader::set_instance_data(instance_data); // Call the base implementation to set all the common instance data
 
@@ -43,6 +62,8 @@ void EntityRenderer::EntityRenderer::render(const RenderScene& render_scene, con
         // so that issue won't happen since it only recompiles on a change.
         // Just make sure to be careful of this kind of thing.
         shader.set_point_lights(light_scene.get_nearest_point_lights(position, BaseLitEntityShader::MAX_PL, 1));
+        // task h
+        shader.set_directional_lights(light_scene.get_directional_lights(BaseLitEntityShader::MAX_DL));
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, entity->render_data.diffuse_texture->get_texture_id());
