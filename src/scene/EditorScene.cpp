@@ -118,7 +118,7 @@ void EditorScene::EditorScene::open(const SceneContext& scene_context) {
     };
 }
 
-std::pair<TickResponseType, std::shared_ptr<SceneInterface>> EditorScene::EditorScene::tick(float /*delta_time*/, const SceneContext& scene_context) {
+std::pair<TickResponseType, std::shared_ptr<SceneInterface>> EditorScene::EditorScene::tick(float delta_time, const SceneContext& scene_context) {
     /// If the `Esc` key was pressed this tick, then tell the scene manager to exit
     if (scene_context.window.was_key_pressed(GLFW_KEY_ESCAPE)) {
         return {TickResponseType::Exit, nullptr};
@@ -140,6 +140,7 @@ std::pair<TickResponseType, std::shared_ptr<SceneInterface>> EditorScene::Editor
     if (scene_context.imgui_enabled) {
         add_imgui_selection_editor(scene_context);
         add_imgui_scene_hierarchy(scene_context);
+        add_imgui_brush_tool_section(scene_context); // Add brush tool UI
     }
 
     /// Default to telling the SceneManager to continue ticking
@@ -250,6 +251,8 @@ void EditorScene::EditorScene::add_imgui_scene_hierarchy(const SceneContext& sce
             }
             if (!is_null(insert_at) && insert_at != list->end()) {
                 ++insert_at;
+            } else {
+                insert_at = list->end();
             }
         } else {
             insert_at = list->end();
@@ -638,3 +641,73 @@ void EditorScene::EditorScene::load_from_json_file(const SceneContext& scene_con
         tinyfd_messageBox("Failed to open File", "See Console For Error", "ok", "error", 1);
     }
 }
+
+void EditorScene::EditorScene::add_imgui_brush_tool_section(const SceneContext& scene_context) {
+    if (ImGui::CollapsingHeader("Brush Tool")) {
+        static bool brush_enabled = false;
+        static float brush_size = 1.0f;
+        static int spawn_density = 5;
+        static const char* selected_entity = "Entity";
+
+        ImGui::Checkbox("Enable Brush Tool", &brush_enabled);
+        ImGui::SliderFloat("Brush Size", &brush_size, 0.1f, 10.0f);
+        ImGui::SliderInt("Spawn Density", &spawn_density, 1, 20);
+
+        if (ImGui::BeginCombo("Entity Type", selected_entity)) {
+            for (const auto& gen : entity_generators) {
+                if (ImGui::Selectable(gen.first.c_str(), selected_entity == gen.first.c_str())) {
+                    selected_entity = gen.first.c_str();
+                }
+            }
+            ImGui::EndCombo();
+        }
+
+        if (brush_enabled) {
+            handle_brush_tool(scene_context, brush_size, spawn_density, selected_entity);
+        }
+    }
+}
+
+void EditorScene::EditorScene::handle_brush_tool(const SceneContext& scene_context, float brush_size, int spawn_density, const char* entity_type) {
+    if (ImGui::IsMouseDown(0)) {
+        auto mouse_pos = ImGui::GetMousePos();
+        glm::vec3 world_position = this->calculate_world_position(mouse_pos, scene_context);
+
+        for (int i = 0; i < spawn_density; ++i) {
+            glm::vec3 spawn_position = world_position;
+
+            auto gen = std::find_if(entity_generators.begin(), entity_generators.end(),
+                                    [entity_type](const auto& pair) { return pair.first == entity_type; });
+            if (gen != entity_generators.end()) {
+                auto new_entity = gen->second(scene_context, NullElementRef);
+
+                // Ensure the entity supports set_position
+                auto* entity_element = dynamic_cast<EntityElement*>(new_entity.get());
+                if (entity_element) {
+                    entity_element->set_position(spawn_position);
+                }
+
+                new_entity->update_instance_data();
+                new_entity->add_to_render_scene(render_scene);
+                scene_root->push_back(std::move(new_entity));
+            }
+        }
+    }
+}
+
+glm::vec3 EditorScene::EditorScene::calculate_world_position(const ImVec2& mouse_pos, const SceneContext& scene_context) {
+    float x = (2.0f * mouse_pos.x) / scene_context.window.get_window_width() - 1.0f;
+    float y = 1.0f - (2.0f * mouse_pos.y) / scene_context.window.get_window_height();
+    glm::vec4 ray_clip = glm::vec4(x, y, -1.0f, 1.0f);
+
+    glm::vec4 ray_eye = glm::inverse(camera->get_projection_matrix()) * ray_clip;
+    ray_eye = glm::vec4(ray_eye.x, ray_eye.y, -1.0f, 0.0f);
+
+    glm::vec3 ray_world = glm::normalize(glm::vec3(glm::inverse(camera->get_view_matrix()) * ray_eye));
+
+    float t = -camera->get_position().y / ray_world.y;
+    glm::vec3 world_position = camera->get_position() + t * ray_world;
+    // Return the calculated world position
+    return world_position;
+}
+

@@ -32,6 +32,8 @@ namespace EditorScene {
             target_render_scene.remove_entity(rendered_entity);
         }
 
+        void set_position(const glm::vec3& new_position);
+
         [[nodiscard]] const char* element_type_name() const override;
     };
 }

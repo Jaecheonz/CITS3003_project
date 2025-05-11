@@ -90,6 +90,11 @@ void EditorScene::EntityElement::update_instance_data() {
     rendered_entity->instance_data.material = material;
 }
 
+void EditorScene::EntityElement::set_position(const glm::vec3& new_position) {
+    position = new_position;
+    update_instance_data();
+}
+
 const char* EditorScene::EntityElement::element_type_name() const {
     return ELEMENT_TYPE_NAME;
 }
