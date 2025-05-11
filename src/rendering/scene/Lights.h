@@ -34,10 +34,36 @@ struct PointLight {
     };
 };
 
+// task h
+struct DirectionalLight {
+    DirectionalLight() = default;
+
+    DirectionalLight(const glm::vec3& direction, const glm::vec4& colour) :
+        direction(direction), colour(colour) {}
+
+    static DirectionalLight off() {
+        return {glm::vec3(0.0f, -1.0f, 0.0f), glm::vec4(0.0f)};
+    }
+
+    static std::shared_ptr<DirectionalLight> create(const glm::vec3& direction, const glm::vec4& colour) {
+        return std::make_shared<DirectionalLight>(direction, colour);
+    }
+
+    glm::vec3 direction{}; // Assumes normalized world direction
+    glm::vec4 colour{};
+
+    struct Data {
+        alignas(16) glm::vec3 direction;
+        alignas(16) glm::vec3 colour;
+    };
+};
+
 /// A collection of each light type, with helpers that allow for selecting a subset of
 /// those lights on a proximity basis, since processing an unbounded number of lights on the GPU is bad idea.
 struct LightScene {
     std::unordered_set<std::shared_ptr<PointLight>> point_lights;
+    // task h
+    std::unordered_set<std::shared_ptr<DirectionalLight>> directional_lights;
 
     /// Will return up to `max_count` nearest point lights to `target`.
     /// It returns less than `max_count` if there are not that many point lights,
@@ -54,6 +80,9 @@ struct LightScene {
     ///       as well as support incrementally getting the `k` nearest.
     ///
     std::vector<PointLight> get_nearest_point_lights(glm::vec3 target, size_t max_count, size_t min_count = 0) const;
+    // task h
+    std::vector<DirectionalLight> get_directional_lights(size_t max_count, size_t min_count = 0) const;
+
 
 private:
     template<typename Light>
