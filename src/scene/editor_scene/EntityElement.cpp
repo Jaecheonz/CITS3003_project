@@ -40,9 +40,15 @@ std::unique_ptr<EditorScene::EntityElement> EditorScene::EntityElement::from_jso
     new_entity->update_local_transform_from_json(j);
     new_entity->update_material_from_json(j);
 
-    new_entity->rendered_entity->model = scene_context.model_loader.load_from_file<EntityRenderer::VertexData>(j["model"]);
-    new_entity->rendered_entity->render_data.diffuse_texture = texture_from_json(scene_context, j["diffuse_texture"]);
-    new_entity->rendered_entity->render_data.specular_map_texture = texture_from_json(scene_context, j["specular_map_texture"]);
+    if (j.contains("model")) {
+        new_entity->rendered_entity->model = scene_context.model_loader.load_from_file<EntityRenderer::VertexData>(j["model"]);
+    }
+    if (j.contains("diffuse_texture")) {
+        new_entity->rendered_entity->render_data.diffuse_texture = texture_from_json(scene_context, j["diffuse_texture"]);
+    }
+    if (j.contains("specular_map_texture")) {
+        new_entity->rendered_entity->render_data.specular_map_texture = texture_from_json(scene_context, j["specular_map_texture"]);
+    }
 
     new_entity->update_instance_data();
     return new_entity;
@@ -97,4 +103,23 @@ void EditorScene::EntityElement::set_position(const glm::vec3& new_position) {
 
 const char* EditorScene::EntityElement::element_type_name() const {
     return ELEMENT_TYPE_NAME;
+}
+
+void EditorScene::EntityElement::load_json(const json& j, const SceneContext& scene_context) {
+    if (j.contains("local_transform")) {
+        update_local_transform_from_json(j);
+    }
+    if (j.contains("material")) {
+        update_material_from_json(j);
+    }
+    if (j.contains("model") && rendered_entity) {
+        rendered_entity->model = scene_context.model_loader.load_from_file<EntityRenderer::VertexData>(j["model"]);
+    }
+    if (j.contains("diffuse_texture") && rendered_entity) {
+        rendered_entity->render_data.diffuse_texture = texture_from_json(scene_context, j["diffuse_texture"]);
+    }
+    if (j.contains("specular_map_texture") && rendered_entity) {
+        rendered_entity->render_data.specular_map_texture = texture_from_json(scene_context, j["specular_map_texture"]);
+    }
+    update_instance_data();
 }

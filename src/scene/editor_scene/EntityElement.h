@@ -34,6 +34,8 @@ namespace EditorScene {
 
         void set_position(const glm::vec3& new_position);
 
+        void load_json(const json& j, const SceneContext& scene_context);
+
         [[nodiscard]] const char* element_type_name() const override;
     };
 }

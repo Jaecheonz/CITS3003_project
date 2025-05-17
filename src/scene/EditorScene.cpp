@@ -647,28 +647,55 @@ void EditorScene::EditorScene::add_imgui_brush_tool_section(const SceneContext& 
         static bool brush_enabled = false;
         static float brush_size = 1.0f;
         static int spawn_density = 5;
-        static const char* selected_entity = "Entity";
+        static std::string selected_entity = "Entity";
+        static std::unique_ptr<SceneElement> template_entity = nullptr;
 
         ImGui::Checkbox("Enable Brush Tool", &brush_enabled);
         ImGui::SliderFloat("Brush Size", &brush_size, 0.1f, 10.0f);
         ImGui::SliderInt("Spawn Density", &spawn_density, 1, 20);
 
-        if (ImGui::BeginCombo("Entity Type", selected_entity)) {
+        // Entity type selection
+        if (ImGui::BeginCombo("Entity Type", selected_entity.c_str())) {
             for (const auto& gen : entity_generators) {
-                if (ImGui::Selectable(gen.first.c_str(), selected_entity == gen.first.c_str())) {
-                    selected_entity = gen.first.c_str();
+                if (ImGui::Selectable(gen.first.c_str(), selected_entity == gen.first)) {
+                    selected_entity = gen.first;
+                    // Update template entity when type changes
+                    const std::string& sel = selected_entity;
+                    auto found = std::find_if(entity_generators.begin(), entity_generators.end(),
+                        [&sel](const auto& pair) { return pair.first == sel; });
+                    if (found != entity_generators.end()) {
+                        template_entity = found->second(scene_context, NullElementRef);
+                    }
                 }
             }
             ImGui::EndCombo();
         }
 
+        // If no template entity yet, create one for the default type
+        if (!template_entity) {
+            const std::string& sel = selected_entity;
+            auto found = std::find_if(entity_generators.begin(), entity_generators.end(),
+                [&sel](const auto& pair) { return pair.first == sel; });
+            if (found != entity_generators.end()) {
+                template_entity = found->second(scene_context, NullElementRef);
+            }
+        }
+
+        // Show property editor for the template entity
+        if (template_entity) {
+            ImGui::Separator();
+            ImGui::Text("Template Properties");
+            template_entity->add_imgui_edit_section(render_scene, scene_context);
+        }
+
         if (brush_enabled) {
-            handle_brush_tool(scene_context, brush_size, spawn_density, selected_entity);
+            handle_brush_tool(scene_context, brush_size, spawn_density, selected_entity.c_str(), template_entity.get());
         }
     }
 }
 
-void EditorScene::EditorScene::handle_brush_tool(const SceneContext& scene_context, float brush_size, int spawn_density, const char* entity_type) {
+// Update handle_brush_tool to accept a template entity and copy its properties
+void EditorScene::EditorScene::handle_brush_tool(const SceneContext& scene_context, float brush_size, int spawn_density, const char* entity_type, SceneElement* template_entity) {
     if (ImGui::IsMouseDown(0)) {
         auto mouse_pos = ImGui::GetMousePos();
         glm::vec3 world_position = this->calculate_world_position(mouse_pos, scene_context);
@@ -681,9 +708,23 @@ void EditorScene::EditorScene::handle_brush_tool(const SceneContext& scene_conte
             if (gen != entity_generators.end()) {
                 auto new_entity = gen->second(scene_context, NullElementRef);
 
-                // Ensure the entity supports set_position
-                auto* entity_element = dynamic_cast<EntityElement*>(new_entity.get());
-                if (entity_element) {
+                // Copy properties from template_entity if possible
+                if (template_entity) {
+                    json props = template_entity->into_json();
+
+                    // Only call load_json if the type supports it
+                    if (auto* entity_elem = dynamic_cast<EntityElement*>(new_entity.get())) {
+                        entity_elem->load_json(props, scene_context);
+                    } else if (auto* anim_elem = dynamic_cast<AnimatedEntityElement*>(new_entity.get())) {
+                        anim_elem->load_json(props);
+                    } else if (auto* emissive_elem = dynamic_cast<EmissiveEntityElement*>(new_entity.get())) {
+                        emissive_elem->load_json(props);
+                    }
+                    // Add more else ifs for other types as needed
+                }
+
+                // Set position for the spawned entity
+                if (auto* entity_element = dynamic_cast<EntityElement*>(new_entity.get())) {
                     entity_element->set_position(spawn_position);
                 }
 
