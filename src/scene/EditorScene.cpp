@@ -646,17 +646,19 @@ void EditorScene::EditorScene::add_imgui_brush_tool_section(const SceneContext& 
     if (ImGui::CollapsingHeader("Brush Tool")) {
         static bool brush_enabled = false;
         static float brush_size = 1.0f;
-        static int spawn_density = 1;
         static int brush_mode = 0;
+        static int spawn_density = 1;
+        static float y_offset = 0.0f;
         static std::string selected_entity = "Entity";
         static std::unique_ptr<SceneElement> template_entity = nullptr;
         const char* brush_modes[] = { "Once per Click", "Continuous Hold" };
 
 
         ImGui::Checkbox("Enable Brush Tool", &brush_enabled);
-        ImGui::Combo("Brush Mode", &brush_mode, brush_modes, IM_ARRAYSIZE(brush_modes));
         ImGui::SliderFloat("Brush Size", &brush_size, 0.1f, 10.0f);
+        ImGui::Combo("Brush Mode", &brush_mode, brush_modes, IM_ARRAYSIZE(brush_modes));
         ImGui::SliderInt("Spawn Density", &spawn_density, 1, 20);
+        ImGui::SliderFloat("Y Offset", &y_offset, -10.0f, 10.0f, "%.2f");
 
         // Entity type selection
         if (ImGui::BeginCombo("Entity Type", selected_entity.c_str())) {
@@ -693,13 +695,14 @@ void EditorScene::EditorScene::add_imgui_brush_tool_section(const SceneContext& 
         }
 
         if (brush_enabled) {
-            handle_brush_tool(scene_context, brush_size, spawn_density, selected_entity.c_str(), template_entity.get(), brush_mode);
+            handle_brush_tool(scene_context, brush_size, spawn_density, selected_entity.c_str(), template_entity.get(), brush_mode, y_offset);
+
         }
     }
 }
 
 // Update handle_brush_tool to accept a template entity and copy its properties
-void EditorScene::EditorScene::handle_brush_tool(const SceneContext& scene_context, float brush_size, int spawn_density, const char* entity_type, SceneElement* template_entity, int brush_mode) {
+void EditorScene::EditorScene::handle_brush_tool(const SceneContext& scene_context, float brush_size, int spawn_density, const char* entity_type, SceneElement* template_entity, int brush_mode, float y_offset) {
     // static state lives across frames:
     static bool was_mouse_down = false;
     static float last_spawn_time = 0.0f;
@@ -736,7 +739,8 @@ void EditorScene::EditorScene::handle_brush_tool(const SceneContext& scene_conte
         // glm::vec3 offset = glm::ballRand(brush_size);
         // glm::vec3 spawn_position = world_position + offset;
         glm::vec3 spawn_position = world_position;
-
+        spawn_position.y = y_offset;
+        
         // find the right generator
         auto gen_it = std::find_if(entity_generators.begin(), entity_generators.end(),
             [entity_type](const auto& pair) {
