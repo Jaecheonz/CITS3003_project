@@ -667,21 +667,14 @@ void EditorScene::EditorScene::add_imgui_brush_tool_section(const SceneContext& 
         ImGui::SliderInt("Spawn Density", &spawn_density, 1, 20);
         ImGui::SliderFloat("Y Offset", &y_offset, -10.0f, 10.0f, "%.2f");
 
-        // Entity type selection
-        if (ImGui::BeginCombo("Entity Type", selected_entity.c_str())) {
-            for (const auto& gen : entity_generators) {
-                if (ImGui::Selectable(gen.first.c_str(), selected_entity == gen.first)) {
-                    selected_entity = gen.first;
-                    // Update template entity when type changes
-                    const std::string& sel = selected_entity;
-                    auto found = std::find_if(entity_generators.begin(), entity_generators.end(),
-                        [&sel](const auto& pair) { return pair.first == sel; });
-                    if (found != entity_generators.end()) {
-                        template_entity = found->second(scene_context, NullElementRef);
-                    }
-                }
+        // Hardcode "Entity" type — no dropdown
+        selected_entity = "Entity";
+        if (!template_entity) {
+            auto found = std::find_if(entity_generators.begin(), entity_generators.end(),
+                [](const auto& pair) { return pair.first == "Entity"; });
+            if (found != entity_generators.end()) {
+                template_entity = found->second(scene_context, NullElementRef);
             }
-            ImGui::EndCombo();
         }
 
         // If no template entity yet, create one for the default type
@@ -697,6 +690,7 @@ void EditorScene::EditorScene::add_imgui_brush_tool_section(const SceneContext& 
         // Show property editor for the template entity
         if (template_entity) {
             ImGui::Separator();
+            ImGui::Text("Entity Type: Entity");
             ImGui::Text("Template Properties");
             template_entity->add_imgui_edit_section(render_scene, scene_context);
         }
