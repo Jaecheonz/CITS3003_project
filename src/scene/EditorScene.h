@@ -63,7 +63,7 @@ namespace EditorScene {
 
         /// brush tool
         void add_imgui_brush_tool_section(const SceneContext& scene_context);
-        void handle_brush_tool(const SceneContext &scene_context, float brush_size, int spawn_density, const char *entity_type, SceneElement *template_entity);
+        void handle_brush_tool(const SceneContext &scene_context, float brush_size, int spawn_density, const char *entity_type, SceneElement *template_entity, int brush_mode);
         glm::vec3 calculate_world_position(const ImVec2 &mouse_pos, const SceneContext &scene_context);
 
     private:

@@ -646,11 +646,15 @@ void EditorScene::EditorScene::add_imgui_brush_tool_section(const SceneContext& 
     if (ImGui::CollapsingHeader("Brush Tool")) {
         static bool brush_enabled = false;
         static float brush_size = 1.0f;
-        static int spawn_density = 5;
+        static int spawn_density = 1;
+        static int brush_mode = 0;
         static std::string selected_entity = "Entity";
         static std::unique_ptr<SceneElement> template_entity = nullptr;
+        const char* brush_modes[] = { "Once per Click", "Continuous Hold" };
+
 
         ImGui::Checkbox("Enable Brush Tool", &brush_enabled);
+        ImGui::Combo("Brush Mode", &brush_mode, brush_modes, IM_ARRAYSIZE(brush_modes));
         ImGui::SliderFloat("Brush Size", &brush_size, 0.1f, 10.0f);
         ImGui::SliderInt("Spawn Density", &spawn_density, 1, 20);
 
@@ -689,50 +693,79 @@ void EditorScene::EditorScene::add_imgui_brush_tool_section(const SceneContext& 
         }
 
         if (brush_enabled) {
-            handle_brush_tool(scene_context, brush_size, spawn_density, selected_entity.c_str(), template_entity.get());
+            handle_brush_tool(scene_context, brush_size, spawn_density, selected_entity.c_str(), template_entity.get(), brush_mode);
         }
     }
 }
 
 // Update handle_brush_tool to accept a template entity and copy its properties
-void EditorScene::EditorScene::handle_brush_tool(const SceneContext& scene_context, float brush_size, int spawn_density, const char* entity_type, SceneElement* template_entity) {
-    if (ImGui::IsMouseDown(0)) {
-        auto mouse_pos = ImGui::GetMousePos();
-        glm::vec3 world_position = this->calculate_world_position(mouse_pos, scene_context);
+void EditorScene::EditorScene::handle_brush_tool(const SceneContext& scene_context, float brush_size, int spawn_density, const char* entity_type, SceneElement* template_entity, int brush_mode) {
+    // static state lives across frames:
+    static bool was_mouse_down = false;
+    static float last_spawn_time = 0.0f;
+    const bool mouse_down = ImGui::IsMouseDown(0);
+    const float now = ImGui::GetTime(); // seconds since app start
 
-        for (int i = 0; i < spawn_density; ++i) {
-            glm::vec3 spawn_position = world_position;
+    // compute spawn “permission”:
+    bool do_spawn = false;
 
-            auto gen = std::find_if(entity_generators.begin(), entity_generators.end(),
-                                    [entity_type](const auto& pair) { return pair.first == entity_type; });
-            if (gen != entity_generators.end()) {
-                auto new_entity = gen->second(scene_context, NullElementRef);
+    if (brush_mode == 0) {
+        // Once per click
+        if (mouse_down && !was_mouse_down) {
+            do_spawn = true;
+        }
+    } else if (brush_mode == 1) {
+        // Continuous spawn
+        const float spawn_interval = 0.1f; // seconds
+        if (mouse_down && (now - last_spawn_time) >= spawn_interval) {
+            do_spawn = true;
+            last_spawn_time = now;
+        }
+    }
 
-                // Copy properties from template_entity if possible
-                if (template_entity) {
-                    json props = template_entity->into_json();
+    was_mouse_down = mouse_down;
 
-                    // Only call load_json if the type supports it
-                    if (auto* entity_elem = dynamic_cast<EntityElement*>(new_entity.get())) {
-                        entity_elem->load_json(props, scene_context);
-                    } else if (auto* anim_elem = dynamic_cast<AnimatedEntityElement*>(new_entity.get())) {
-                        anim_elem->load_json(props);
-                    } else if (auto* emissive_elem = dynamic_cast<EmissiveEntityElement*>(new_entity.get())) {
-                        emissive_elem->load_json(props);
-                    }
-                    // Add more else ifs for other types as needed
-                }
+    if (!do_spawn)
+        return;
+    
+    // OK, we’re going to spawn `spawn_density` copies at this spot:
+    auto mouse_pos = ImGui::GetMousePos();
+    glm::vec3 world_position = calculate_world_position(mouse_pos, scene_context);
+    for (int i = 0; i < spawn_density; ++i) {
+        // Optionally jitter within the brush radius:
+        // glm::vec3 offset = glm::ballRand(brush_size);
+        // glm::vec3 spawn_position = world_position + offset;
+        glm::vec3 spawn_position = world_position;
 
-                // Set position for the spawned entity
-                if (auto* entity_element = dynamic_cast<EntityElement*>(new_entity.get())) {
-                    entity_element->set_position(spawn_position);
-                }
+        // find the right generator
+        auto gen_it = std::find_if(entity_generators.begin(), entity_generators.end(),
+            [entity_type](const auto& pair) {
+                return pair.first == entity_type;
+            });
+        if (gen_it == entity_generators.end()) continue;
 
-                new_entity->update_instance_data();
-                new_entity->add_to_render_scene(render_scene);
-                scene_root->push_back(std::move(new_entity));
+        auto new_entity = gen_it->second(scene_context, NullElementRef);
+
+        // copy template props
+        if (template_entity) {
+            json props = template_entity->into_json();
+            if (auto* e = dynamic_cast<EntityElement*>(new_entity.get())) {
+                e->load_json(props, scene_context);
+            } else if (auto* a = dynamic_cast<AnimatedEntityElement*>(new_entity.get())) {
+                a->load_json(props);
+            } else if (auto* em = dynamic_cast<EmissiveEntityElement*>(new_entity.get())) {
+                em->load_json(props);
             }
         }
+
+        // place it
+        if (auto* e = dynamic_cast<EntityElement*>(new_entity.get())) {
+            e->set_position(spawn_position);
+        }
+
+        new_entity->update_instance_data();
+        new_entity->add_to_render_scene(render_scene);
+        scene_root->push_back(std::move(new_entity));
     }
 }
 
