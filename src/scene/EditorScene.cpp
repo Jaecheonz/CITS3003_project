@@ -743,7 +743,8 @@ void EditorScene::EditorScene::handle_brush_tool(const SceneContext& scene_conte
     
     // OK, we’re going to spawn `spawn_density` copies at this spot:
     auto mouse_pos = ImGui::GetMousePos();
-    glm::vec3 world_position = calculate_world_position(mouse_pos, scene_context, y_offset);    
+    glm::dvec2 mouse_window = scene_context.window.get_mouse_pos();
+    glm::vec3 world_position = calculate_world_position(ImVec2(mouse_window.x, mouse_window.y), scene_context, y_offset);    
     for (int i = 0; i < spawn_density; ++i) {
         glm::vec3 spawn_position = world_position;
         spawn_position.y = y_offset;
