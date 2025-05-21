@@ -317,39 +317,25 @@ void EditorScene::EditorScene::add_imgui_scene_hierarchy(const SceneContext& sce
 
         bool has_multi_selection = !multi_selected_elements.empty();
         if (!has_multi_selection) {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-        } else {
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.0f, 0.0f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.0f, 0.0f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.9f, 0.0f, 0.0f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.1f, 0.1f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.9f, 0.2f, 0.2f, 1.0f));
+        } else {
+            // Rainbow when something is selected
+            float t = static_cast<float>(ImGui::GetTime()); // Animate over time
+            auto rainbow = [](float t, float offset) -> ImVec4 {
+                float r = 0.5f + 0.5f * sinf(t + offset);
+                float g = 0.5f + 0.5f * sinf(t + offset + 2.0f);
+                float b = 0.5f + 0.5f * sinf(t + offset + 4.0f);
+                return ImVec4(r, g, b, 1.0f);
+            };
+
+            ImGui::PushStyleColor(ImGuiCol_Button,        rainbow(t, 0.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, rainbow(t, 0.5f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive,  rainbow(t, 1.0f));
         }
 
-
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-        /// add brush tool to spawn new elements
-        if (ImGui::Button("Brush Tool")) {
-            brush_tool_active = !brush_tool_active; // Toggle brush tool mode
-        }
-
-        // Show the brush tool UI inline if active
-        if (brush_tool_active) {
-            ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::Text("Brush Tool");
-            // Use the function-based brush tool UI instead of inline code
-            add_imgui_brush_tool_section(scene_context);
-            ImGui::Separator();
-        }
-
-
-        ImGui::PopStyleColor(3);
-        ImGui::SameLine();
-
-        if (ImGui::Button("Delete Selected") && has_multi_selection) {
+                if (ImGui::Button("Delete Selected") && has_multi_selection) {
             for (auto& ref : multi_selected_elements) {
                 if (is_null(ref)) continue;
 
@@ -370,7 +356,25 @@ void EditorScene::EditorScene::add_imgui_scene_hierarchy(const SceneContext& sce
             multi_selected_elements.clear();
         }
         ImGui::PopStyleColor(3);
+        ImGui::SameLine();
 
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.5f, 0.2f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.7f, 0.3f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.9f, 0.4f, 1.0f));
+        /// add brush tool to spawn new elements
+        if (ImGui::Button("Brush Tool")) {
+            brush_tool_active = !brush_tool_active; // Toggle brush tool mode
+        }
+
+        // Show the brush tool UI inline if active
+        if (brush_tool_active) {
+            // Use the function-based brush tool UI instead of inline code
+            add_imgui_brush_tool_section(scene_context);
+            ImGui::Separator();
+        }
+
+
+        ImGui::PopStyleColor(3);
         ImGui::Separator();
 
         /// Generate The Tree
@@ -676,55 +680,54 @@ void EditorScene::EditorScene::load_from_json_file(const SceneContext& scene_con
 }
 
 void EditorScene::EditorScene::add_imgui_brush_tool_section(const SceneContext& scene_context) {
-    if (ImGui::CollapsingHeader("Brush Tool")) {
-        static bool brush_enabled = false;
-        static float brush_size = 1.0f;
-        static int brush_mode = 0;
-        // static int spawn_density = 1; // Removed spawn_density
-        static float y_offset = 0.0f;
-        static std::string selected_entity = "Entity";
-        static std::unique_ptr<SceneElement> template_entity = nullptr;
-        const char* brush_modes[] = { "Once per Click", "Continuous Hold" };
+
+    static bool brush_enabled = false;
+    static float brush_size = 1.0f;
+    static int brush_mode = 0;
+    // static int spawn_density = 1; // Removed spawn_density
+    static float y_offset = 0.0f;
+    static std::string selected_entity = "Entity";
+    static std::unique_ptr<SceneElement> template_entity = nullptr;
+    const char* brush_modes[] = { "Once per Click", "Continuous Hold" };
 
 
-        ImGui::Checkbox("Enable Brush Tool", &brush_enabled);
-        ImGui::SliderFloat("Brush Size", &brush_size, 0.1f, 10.0f);
-        ImGui::Combo("Brush Mode", &brush_mode, brush_modes, IM_ARRAYSIZE(brush_modes));
-        ImGui::SliderFloat("Y Offset", &y_offset, -10.0f, 10.0f, "%.2f");
-        // ImGui::SliderInt("Spawn Density", &spawn_density, 1, 20); // Removed spawn_density slider
+    ImGui::Checkbox("Enable Brush Tool", &brush_enabled);
+    ImGui::SliderFloat("Brush Size", &brush_size, 0.1f, 10.0f);
+    ImGui::Combo("Brush Mode", &brush_mode, brush_modes, IM_ARRAYSIZE(brush_modes));
+    ImGui::SliderFloat("Y Offset", &y_offset, -10.0f, 10.0f, "%.2f");
+    // ImGui::SliderInt("Spawn Density", &spawn_density, 1, 20); // Removed spawn_density slider
 
-        // Hardcode "Entity" type — no dropdown
-        selected_entity = "Entity";
-        if (!template_entity) {
-            auto found = std::find_if(entity_generators.begin(), entity_generators.end(),
-                [](const auto& pair) { return pair.first == "Entity"; });
-            if (found != entity_generators.end()) {
-                template_entity = found->second(scene_context, NullElementRef);
-            }
+    // Hardcode "Entity" type — no dropdown
+    selected_entity = "Entity";
+    if (!template_entity) {
+        auto found = std::find_if(entity_generators.begin(), entity_generators.end(),
+            [](const auto& pair) { return pair.first == "Entity"; });
+        if (found != entity_generators.end()) {
+            template_entity = found->second(scene_context, NullElementRef);
         }
+    }
 
-        // If no template entity yet, create one for the default type
-        if (!template_entity) {
-            const std::string& sel = selected_entity;
-            auto found = std::find_if(entity_generators.begin(), entity_generators.end(),
-                [&sel](const auto& pair) { return pair.first == sel; });
-            if (found != entity_generators.end()) {
-                template_entity = found->second(scene_context, NullElementRef);
-            }
+    // If no template entity yet, create one for the default type
+    if (!template_entity) {
+        const std::string& sel = selected_entity;
+        auto found = std::find_if(entity_generators.begin(), entity_generators.end(),
+            [&sel](const auto& pair) { return pair.first == sel; });
+        if (found != entity_generators.end()) {
+            template_entity = found->second(scene_context, NullElementRef);
         }
+    }
 
-        // Show property editor for the template entity
-        if (template_entity) {
-            ImGui::Separator();
-            ImGui::Text("Entity Type: Entity");
-            ImGui::Text("Template Properties");
-            template_entity->add_imgui_edit_section(render_scene, scene_context);
-        }
+    // Show property editor for the template entity
+    if (template_entity) {
+        ImGui::Separator();
+        ImGui::Text("Entity Type: Entity");
+        ImGui::Text("Template Properties");
+        template_entity->add_imgui_edit_section(render_scene, scene_context);
+    }
 
-        if (brush_enabled) {
-            // Pass 1 for spawn_density since slider is removed
-            handle_brush_tool(scene_context, brush_size, 1, selected_entity.c_str(), template_entity.get(), brush_mode, y_offset);
-        }
+    if (brush_enabled) {
+        // Pass 1 for spawn_density since slider is removed
+        handle_brush_tool(scene_context, brush_size, 1, selected_entity.c_str(), template_entity.get(), brush_mode, y_offset);
     }
 }
 
