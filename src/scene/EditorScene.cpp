@@ -386,16 +386,20 @@ void EditorScene::EditorScene::add_imgui_scene_hierarchy(const SceneContext& sce
                     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
                         if (ImGui::GetIO().KeyCtrl) {
                             // Toggle in multi-selection set
-                            if (multi_selected_elements.count(iter)) {
-                                multi_selected_elements.erase(iter);
-                            } else {
-                                multi_selected_elements.insert(iter);
+                            if (iter != children->end()) {
+                                if (multi_selected_elements.count(iter)) {
+                                    multi_selected_elements.erase(iter);
+                                } else {
+                                    multi_selected_elements.insert(iter);
+                                }
                             }
                         } else {
                             // Single selection
                             multi_selected_elements.clear();
-                            multi_selected_elements.insert(iter);
-                            selected_element = iter;
+                            if (iter != children->end()) {
+                                multi_selected_elements.insert(iter);
+                                selected_element = iter;
+                            }
                         }
                     }
 
@@ -412,12 +416,13 @@ void EditorScene::EditorScene::add_imgui_scene_hierarchy(const SceneContext& sce
             process_children(scene_root);
 
             // Still allow direct update for single selected (used elsewhere)
-            if (!is_null(selected_element)) {
+            if (!multi_selected_elements.empty()) {
                 selected_element = *multi_selected_elements.begin();
+            } else {
+                selected_element = NullElementRef;
             }
         }
 
-        ImGui::Spacing();
         ImGui::Spacing();
         ImGui::Spacing();
         ImGui::Separator();
@@ -561,9 +566,7 @@ void EditorScene::EditorScene::save_to_json_file() {
 
     std::optional<std::filesystem::path> temp = std::nullopt;
     if (std::filesystem::exists(save_path.value())) {
-        // Note: Ignore any compiler/linker warnings about using this function.
-        // As `mkstemp` does not work here since we need the path to move to,
-        // and there is no (reasonable) platform independent way of doing that.
+
         temp = std::tmpnam(nullptr);
         std::filesystem::rename(save_path.value(), temp.value());
     }
@@ -726,7 +729,7 @@ void EditorScene::EditorScene::handle_brush_tool(const SceneContext& scene_conte
         }
     } else if (brush_mode == 1) {
         // Continuous spawn
-        const float spawn_interval = 0.1f; // seconds
+        const float spawn_interval = 0.f; // seconds
         if (mouse_down && (now - last_spawn_time) >= spawn_interval) {
             do_spawn = true;
             last_spawn_time = now;
