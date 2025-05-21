@@ -740,11 +740,8 @@ void EditorScene::EditorScene::handle_brush_tool(const SceneContext& scene_conte
     
     // OK, we’re going to spawn `spawn_density` copies at this spot:
     auto mouse_pos = ImGui::GetMousePos();
-    glm::vec3 world_position = calculate_world_position(mouse_pos, scene_context);
+    glm::vec3 world_position = calculate_world_position(mouse_pos, scene_context, y_offset);    
     for (int i = 0; i < spawn_density; ++i) {
-        // Optionally jitter within the brush radius:
-        // glm::vec3 offset = glm::ballRand(brush_size);
-        // glm::vec3 spawn_position = world_position + offset;
         glm::vec3 spawn_position = world_position;
         spawn_position.y = y_offset;
 
@@ -780,19 +777,28 @@ void EditorScene::EditorScene::handle_brush_tool(const SceneContext& scene_conte
     }
 }
 
-glm::vec3 EditorScene::EditorScene::calculate_world_position(const ImVec2& mouse_pos, const SceneContext& scene_context) {
+glm::vec3 EditorScene::EditorScene::calculate_world_position(const ImVec2& mouse_pos, const SceneContext& scene_context, float y_offset) {
+    // Convert mouse position to normalized device coordinates
     float x = (2.0f * mouse_pos.x) / scene_context.window.get_window_width() - 1.0f;
     float y = 1.0f - (2.0f * mouse_pos.y) / scene_context.window.get_window_height();
     glm::vec4 ray_clip = glm::vec4(x, y, -1.0f, 1.0f);
 
+    // Transform to eye space
     glm::vec4 ray_eye = glm::inverse(camera->get_projection_matrix()) * ray_clip;
     ray_eye = glm::vec4(ray_eye.x, ray_eye.y, -1.0f, 0.0f);
 
+    // Transform to world space
     glm::vec3 ray_world = glm::normalize(glm::vec3(glm::inverse(camera->get_view_matrix()) * ray_eye));
+    glm::vec3 cam_pos = camera->get_position();
 
-    float t = -camera->get_position().y / ray_world.y;
-    glm::vec3 world_position = camera->get_position() + t * ray_world;
-    // Return the calculated world position
+    // Ray-plane intersection: plane normal (0,1,0), point (any x, y_offset, any z)
+    float denom = ray_world.y;
+    if (std::abs(denom) < 1e-6f) {
+        // Ray is parallel to the plane, return camera position as fallback
+        return cam_pos;
+    }
+    float t = (y_offset - cam_pos.y) / denom;
+    glm::vec3 world_position = cam_pos + t * ray_world;
     return world_position;
 }
 
