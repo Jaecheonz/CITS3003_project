@@ -315,45 +315,36 @@ void EditorScene::EditorScene::add_imgui_scene_hierarchy(const SceneContext& sce
 
         ImGui::SameLine();
 
-        if (is_null(selected_element)) {
+        bool has_multi_selection = !multi_selected_elements.empty();
+        if (!has_multi_selection) {
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
         } else {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.0, 0.0, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.0, 0.0, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.9f, 0.0, 0.0, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.0f, 0.0f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.0f, 0.0f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.9f, 0.0f, 0.0f, 1.0f));
         }
-        /// If something is selected add a delete button
-        if (ImGui::Button("Delete Element") && !is_null(selected_element)) {
-            visit_children(selected_element, [&](SceneElement& element) {
-                if (element.enabled) {
-                    element.remove_from_render_scene(render_scene);
+
+        if (ImGui::Button("Delete Selected") && has_multi_selection) {
+            for (auto& ref : multi_selected_elements) {
+                if (is_null(ref)) continue;
+
+                visit_children(ref, [&](SceneElement& element) {
+                    if (element.enabled) element.remove_from_render_scene(render_scene);
+                });
+
+                (*ref)->remove_from_render_scene(render_scene);
+                auto p = (*ref)->parent;
+                if (!is_null(p)) {
+                    (*p)->get_children()->erase(ref);
+                } else {
+                    scene_root->erase(ref);
                 }
-            });
-
-            auto to_select = selected_element;
-            auto siblings = scene_root;
-            if (!is_null((*to_select)->parent)) {
-                siblings = (*(*to_select)->parent)->get_children();
-            }
-            if (to_select != siblings->begin()) {
-                --to_select;
-            } else if ((++to_select) != siblings->end()) {
-                // to_select will already be advanced
-            } else {
-                // Need to move to_select back in case above case didn't match
-                to_select = (*(--to_select))->parent;
             }
 
-            (*selected_element)->remove_from_render_scene(render_scene);
-            auto p = (*selected_element)->parent;
-            if (!is_null(p)) {
-                (*p)->get_children()->erase(selected_element);
-            } else {
-                scene_root->erase(selected_element);
-            }
-            selected_element = to_select;
+            selected_element = NullElementRef;
+            multi_selected_elements.clear();
         }
         ImGui::PopStyleColor(3);
 
@@ -372,31 +363,47 @@ void EditorScene::EditorScene::add_imgui_scene_hierarchy(const SceneContext& sce
                     const auto& element = *iter;
 
                     ImGuiTreeNodeFlags node_flags = base_flags;
-                    const bool is_selected = eq(selected_element, iter);
-                    if (is_selected) node_flags |= ImGuiTreeNodeFlags_Selected;
+
+                    // Check multi-selection
+                    bool is_multi_selected = multi_selected_elements.count(iter) > 0;
+                    if (is_multi_selected) node_flags |= ImGuiTreeNodeFlags_Selected;
+
                     auto grand_children = element->get_children();
-                    if (grand_children == nullptr) node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+                    if (grand_children == nullptr)
+                        node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
 
-                    if (is_selected) ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetColorU32(ImGuiCol_HeaderHovered));
+                    // Optional style change for selected
+                    if (is_multi_selected)
+                        ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetColorU32(ImGuiCol_HeaderHovered));
 
-                    // Note: The wierd name of like "Ground Plane##0x12405124" is because ImGui requires unique element "names",
-                    // However what is after a "##" in the name doesn't show up in the UI
-                    bool node_open;
-                    if (element->enabled) {
-                        std::string name = Formatter() << element->name.c_str() << "##" << (void*) element.get();
-                        node_open = ImGui::TreeNodeEx(name.c_str(), node_flags | ImGuiTreeNodeFlags_DefaultOpen);
-                    } else {
-                        std::string name = Formatter() << element->name.c_str() << " [Disabled]" << "##" << (void*) element.get();
-                        node_open = ImGui::TreeNodeEx(name.c_str(), node_flags | ImGuiTreeNodeFlags_DefaultOpen);
-                    }
+                    std::string name = Formatter() << element->name.c_str();
+                    if (!element->enabled) name += " [Disabled]";
+                    name += Formatter() << "##" << (void*)element.get();
+
+                    bool node_open = ImGui::TreeNodeEx(name.c_str(), node_flags | ImGuiTreeNodeFlags_DefaultOpen);
+
+                    // Handle click selection
                     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
-                        new_selected = iter;
+                        if (ImGui::GetIO().KeyCtrl) {
+                            // Toggle in multi-selection set
+                            if (multi_selected_elements.count(iter)) {
+                                multi_selected_elements.erase(iter);
+                            } else {
+                                multi_selected_elements.insert(iter);
+                            }
+                        } else {
+                            // Single selection
+                            multi_selected_elements.clear();
+                            multi_selected_elements.insert(iter);
+                            selected_element = iter;
+                        }
                     }
-                    if (is_selected) ImGui::PopStyleColor();
+
+                    if (is_multi_selected)
+                        ImGui::PopStyleColor();
 
                     if (node_open && grand_children != nullptr) {
                         process_children(grand_children);
-
                         ImGui::TreePop();
                     }
                 }
@@ -404,9 +411,9 @@ void EditorScene::EditorScene::add_imgui_scene_hierarchy(const SceneContext& sce
 
             process_children(scene_root);
 
-            if (!is_null(new_selected)) {
-                selected_element = new_selected;
-//                std::cout << "Selected: [" << (*selected_element)->get_name() << "]" << std::endl;
+            // Still allow direct update for single selected (used elsewhere)
+            if (!is_null(selected_element)) {
+                selected_element = *multi_selected_elements.begin();
             }
         }
 
@@ -740,7 +747,7 @@ void EditorScene::EditorScene::handle_brush_tool(const SceneContext& scene_conte
         // glm::vec3 spawn_position = world_position + offset;
         glm::vec3 spawn_position = world_position;
         spawn_position.y = y_offset;
-        
+
         // find the right generator
         auto gen_it = std::find_if(entity_generators.begin(), entity_generators.end(),
             [entity_type](const auto& pair) {

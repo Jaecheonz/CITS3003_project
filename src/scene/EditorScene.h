@@ -10,6 +10,8 @@
 #include "editor_scene/SceneElement.h"
 #include "scene/SceneContext.h"
 
+
+
 /// A namespace for all the things related to the EditorScene, since it's rather complicated
 namespace EditorScene {
     /// A complex scene, which is an interactive scene editor that allows the use to add, edit and remove entities and lights.
@@ -18,6 +20,16 @@ namespace EditorScene {
         /// The root of the scene tree the scene editor manages, and a reference to which element is selected.
         ElementList scene_root;
         ElementRef selected_element;
+
+        // define a custom comparator for list iterators
+        struct ElementRefCompare {
+            bool operator()(const ElementRef& a, const ElementRef& b) const {
+                // Compare the actual pointers of the elements the iterators point to
+                return &**a < &**b;
+            }
+        };
+        /// Set of currently multi-selected elements
+        std::set<ElementRef, ElementRefCompare> multi_selected_elements;
 
         /// The initial camera settings, which is where the camera will be reset to when pressing (R)
         const float init_distance = 8.0f;
