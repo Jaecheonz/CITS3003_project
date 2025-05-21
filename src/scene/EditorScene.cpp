@@ -746,7 +746,7 @@ void EditorScene::EditorScene::handle_brush_tool(const SceneContext& scene_conte
         }
     } else if (brush_mode == 1) {
         // Continuous spawn
-        const float spawn_interval = 0.3f; // seconds
+        const float spawn_interval = 0.1f; // seconds
         if (mouse_down && (now - last_spawn_time) >= spawn_interval) {
             do_spawn = true;
             last_spawn_time = now;
