@@ -140,7 +140,7 @@ std::pair<TickResponseType, std::shared_ptr<SceneInterface>> EditorScene::Editor
     if (scene_context.imgui_enabled) {
         add_imgui_selection_editor(scene_context);
         add_imgui_scene_hierarchy(scene_context);
-        add_imgui_brush_tool_section(scene_context); // Add brush tool UI
+
     }
 
     /// Default to telling the SceneManager to continue ticking
@@ -211,7 +211,8 @@ void EditorScene::EditorScene::add_imgui_selection_editor(const SceneContext& sc
             ImGui::Spacing();
             ImGui::Separator();
             ImGui::Spacing();
-
+            
+            
             /// Add a general check box to enable/disable the SceneElement, when disabled it is invisible, and
             /// lights provide no light.
             ImGui::Text("Control");
@@ -233,7 +234,8 @@ void EditorScene::EditorScene::add_imgui_selection_editor(const SceneContext& sc
 }
 
 void EditorScene::EditorScene::add_imgui_scene_hierarchy(const SceneContext& scene_context) {
-    /// Add a control representing the scene tree/hierarchy
+    static bool brush_tool_active = false; // Add this static variable at the top of the function
+
     if (ImGui::Begin("Scene Hierarchy", nullptr, ImGuiWindowFlags_NoFocusOnAppearing)) {
         /// Calculate where to put or remove items
         auto parent = selected_element;
@@ -326,6 +328,71 @@ void EditorScene::EditorScene::add_imgui_scene_hierarchy(const SceneContext& sce
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.9f, 0.0f, 0.0f, 1.0f));
         }
 
+        /// add brush tool to spawn new elements
+        if (ImGui::Button("Brush Tool")) {
+            brush_tool_active = !brush_tool_active; // Toggle brush tool mode
+        }
+
+        // Show the brush tool UI inline if active
+        if (brush_tool_active) {
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Text("Brush Tool");
+            // Inline brush tool controls (copied from add_imgui_brush_tool_section)
+            static bool brush_enabled = true;
+            static float brush_size = 1.0f;
+            static int brush_mode = 0;
+            static int spawn_density = 1;
+            static float y_offset = 0.0f;
+            static std::string selected_entity = "Entity";
+            static std::unique_ptr<SceneElement> template_entity = nullptr;
+            const char* brush_modes[] = { "Once per Click", "Continuous Hold" };
+
+            ImGui::Checkbox("Enable Brush Tool", &brush_enabled);
+            ImGui::SliderFloat("Brush Size", &brush_size, 0.1f, 10.0f);
+            ImGui::Combo("Brush Mode", &brush_mode, brush_modes, IM_ARRAYSIZE(brush_modes));
+            ImGui::SliderFloat("Y Offset", &y_offset, -10.0f, 10.0f, "%.2f");
+
+            // Entity type selection
+            if (ImGui::BeginCombo("Entity Type", selected_entity.c_str())) {
+                for (const auto& gen : entity_generators) {
+                    if (ImGui::Selectable(gen.first.c_str(), selected_entity == gen.first)) {
+                        selected_entity = gen.first;
+                        // Update template entity when type changes
+                        const std::string& sel = selected_entity;
+                        auto found = std::find_if(entity_generators.begin(), entity_generators.end(),
+                            [&sel](const auto& pair) { return pair.first == sel; });
+                        if (found != entity_generators.end()) {
+                            template_entity = found->second(scene_context, NullElementRef);
+                        }
+                    }
+                }
+                ImGui::EndCombo();
+            }
+
+            // If no template entity yet, create one for the default type
+            if (!template_entity) {
+                const std::string& sel = selected_entity;
+                auto found = std::find_if(entity_generators.begin(), entity_generators.end(),
+                    [&sel](const auto& pair) { return pair.first == sel; });
+                if (found != entity_generators.end()) {
+                    template_entity = found->second(scene_context, NullElementRef);
+                }
+            }
+
+            // Show property editor for the template entity
+            if (template_entity) {
+                ImGui::Separator();
+                ImGui::Text("Template Properties");
+                template_entity->add_imgui_edit_section(render_scene, scene_context);
+            }
+
+            if (brush_enabled) {
+                handle_brush_tool(scene_context, brush_size, spawn_density, selected_entity.c_str(), template_entity.get(), brush_mode, y_offset);
+            }
+            ImGui::Separator();
+        }
+
         if (ImGui::Button("Delete Selected") && has_multi_selection) {
             for (auto& ref : multi_selected_elements) {
                 if (is_null(ref)) continue;
@@ -386,16 +453,20 @@ void EditorScene::EditorScene::add_imgui_scene_hierarchy(const SceneContext& sce
                     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
                         if (ImGui::GetIO().KeyCtrl) {
                             // Toggle in multi-selection set
-                            if (multi_selected_elements.count(iter)) {
-                                multi_selected_elements.erase(iter);
-                            } else {
-                                multi_selected_elements.insert(iter);
+                            if (iter != children->end()) {
+                                if (multi_selected_elements.count(iter)) {
+                                    multi_selected_elements.erase(iter);
+                                } else {
+                                    multi_selected_elements.insert(iter);
+                                }
                             }
                         } else {
                             // Single selection
                             multi_selected_elements.clear();
-                            multi_selected_elements.insert(iter);
-                            selected_element = iter;
+                            if (iter != children->end()) {
+                                multi_selected_elements.insert(iter);
+                                selected_element = iter;
+                            }
                         }
                     }
 
@@ -412,12 +483,13 @@ void EditorScene::EditorScene::add_imgui_scene_hierarchy(const SceneContext& sce
             process_children(scene_root);
 
             // Still allow direct update for single selected (used elsewhere)
-            if (!is_null(selected_element)) {
+            if (!multi_selected_elements.empty()) {
                 selected_element = *multi_selected_elements.begin();
+            } else {
+                selected_element = NullElementRef;
             }
         }
 
-        ImGui::Spacing();
         ImGui::Spacing();
         ImGui::Spacing();
         ImGui::Separator();
@@ -561,9 +633,7 @@ void EditorScene::EditorScene::save_to_json_file() {
 
     std::optional<std::filesystem::path> temp = std::nullopt;
     if (std::filesystem::exists(save_path.value())) {
-        // Note: Ignore any compiler/linker warnings about using this function.
-        // As `mkstemp` does not work here since we need the path to move to,
-        // and there is no (reasonable) platform independent way of doing that.
+
         temp = std::tmpnam(nullptr);
         std::filesystem::rename(save_path.value(), temp.value());
     }
@@ -664,7 +734,6 @@ void EditorScene::EditorScene::add_imgui_brush_tool_section(const SceneContext& 
         ImGui::Checkbox("Enable Brush Tool", &brush_enabled);
         ImGui::SliderFloat("Brush Size", &brush_size, 0.1f, 10.0f);
         ImGui::Combo("Brush Mode", &brush_mode, brush_modes, IM_ARRAYSIZE(brush_modes));
-        ImGui::SliderInt("Spawn Density", &spawn_density, 1, 20);
         ImGui::SliderFloat("Y Offset", &y_offset, -10.0f, 10.0f, "%.2f");
 
         // Hardcode "Entity" type — no dropdown
@@ -720,7 +789,7 @@ void EditorScene::EditorScene::handle_brush_tool(const SceneContext& scene_conte
         }
     } else if (brush_mode == 1) {
         // Continuous spawn
-        const float spawn_interval = 0.1f; // seconds
+        const float spawn_interval = 0.f; // seconds
         if (mouse_down && (now - last_spawn_time) >= spawn_interval) {
             do_spawn = true;
             last_spawn_time = now;
@@ -734,11 +803,9 @@ void EditorScene::EditorScene::handle_brush_tool(const SceneContext& scene_conte
     
     // OK, we’re going to spawn `spawn_density` copies at this spot:
     auto mouse_pos = ImGui::GetMousePos();
-    glm::vec3 world_position = calculate_world_position(mouse_pos, scene_context);
+    glm::dvec2 mouse_window = scene_context.window.get_mouse_pos();
+    glm::vec3 world_position = calculate_world_position(ImVec2(mouse_window.x, mouse_window.y), scene_context, y_offset);    
     for (int i = 0; i < spawn_density; ++i) {
-        // Optionally jitter within the brush radius:
-        // glm::vec3 offset = glm::ballRand(brush_size);
-        // glm::vec3 spawn_position = world_position + offset;
         glm::vec3 spawn_position = world_position;
         spawn_position.y = y_offset;
 
@@ -774,19 +841,28 @@ void EditorScene::EditorScene::handle_brush_tool(const SceneContext& scene_conte
     }
 }
 
-glm::vec3 EditorScene::EditorScene::calculate_world_position(const ImVec2& mouse_pos, const SceneContext& scene_context) {
+glm::vec3 EditorScene::EditorScene::calculate_world_position(const ImVec2& mouse_pos, const SceneContext& scene_context, float y_offset) {
+    // Convert mouse position to normalized device coordinates
     float x = (2.0f * mouse_pos.x) / scene_context.window.get_window_width() - 1.0f;
     float y = 1.0f - (2.0f * mouse_pos.y) / scene_context.window.get_window_height();
     glm::vec4 ray_clip = glm::vec4(x, y, -1.0f, 1.0f);
 
+    // Transform to eye space
     glm::vec4 ray_eye = glm::inverse(camera->get_projection_matrix()) * ray_clip;
     ray_eye = glm::vec4(ray_eye.x, ray_eye.y, -1.0f, 0.0f);
 
+    // Transform to world space
     glm::vec3 ray_world = glm::normalize(glm::vec3(glm::inverse(camera->get_view_matrix()) * ray_eye));
+    glm::vec3 cam_pos = camera->get_position();
 
-    float t = -camera->get_position().y / ray_world.y;
-    glm::vec3 world_position = camera->get_position() + t * ray_world;
-    // Return the calculated world position
+    // Ray-plane intersection: plane normal (0,1,0), point (any x, y_offset, any z)
+    float denom = ray_world.y;
+    if (std::abs(denom) < 1e-6f) {
+        // Ray is parallel to the plane, return camera position as fallback
+        return cam_pos;
+    }
+    float t = (y_offset - cam_pos.y) / denom;
+    glm::vec3 world_position = cam_pos + t * ray_world;
     return world_position;
 }
 
